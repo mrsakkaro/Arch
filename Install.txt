@@ -1,0 +1,2 @@
+To verfiy that you are booted in to UEFI,
+# efivar -l
