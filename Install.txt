@@ -1,2 +1,57 @@
-To verfiy that you are booted in to UEFI,
-# efivar -l
+#To verfiy that you are booted in to UEFI,
+efivar -l
+
+# We are going to use RAID1 of BTRFS with sda and sdb
+mkfs.btrfs -L "ArchOS" -d raid1 -m raid1 /dev/sda/ /dev/sdb 
+
+mount /dev/sda/ /mnt
+cd /mnt
+btrfs subvolume create __active
+btrfs subvolume create __active/rootvol
+btrfs subvolume create __active/home
+btrfs subvolume create __active/var
+btrfs subvolume create __snapshots
+
+cd 
+umount /mnt
+mount -o subvol=__active/rootvol /dev/sda /mnt
+mkdir /mnt/{home,var}
+mount -o subvol=__active/home /dev/sda /mnt/home
+mount -o subvol=__active/var /dev/sda /mnt/var
+
+
+pacstrap -i /mnt base base-devel vim btrfs-progs
+genfstab -U /mnt >> /mnt/etc/fstab
+
+arch-chroot /mnt/ /bin/bash
+
+pacman -Syy
+
+*edit file /etc/locale.gen
+locale-gen
+
+ln -s /usr/share/zoneinfo/US/Eastern /etc/localtime
+
+systemctl enable dhcpcd
+
+pacman -S net-tools
+
+*edit /etc/mkinitcpio.conf
+mkinitcpio -p linux
+
+pacman -S grub
+
+grub-install --target=i386-pc --recheck /dev/sda
+grub-install --target=i386-pc --recheck /dev/sdb
+
+grub-mkconfig -o /boot/grub/grub.cfg
+
+reboot
+
+mkdir /mnt/defvol
+mount /dev/sda /mnt/defvol
+
+cd /mnt/defvol
+btrfs subvolume snapshot -r __active/rootvol __snapshots/root-$(date "+%F")
+btrfs subvolume snapshot -r __active/home __snapshots/home-$(date "+%F")
+btrfs subvolume snapshot -r __active/var __snapshots/var-$(date "+%F")
